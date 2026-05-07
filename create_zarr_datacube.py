@@ -18,9 +18,9 @@ import zarr
 from zarr.codecs import ZstdCodec
 
 COG_DIR    = "./lake_detection_binary_masks_merged_daily_v2_cog_3413_clipped"
-OUT_ZARR   = "./lake_detection_binary_masks_2019.zarr"
-START_DATE = "20190501"  # inclusive, YYYYMMDD
-END_DATE   = "20190930"  # inclusive, YYYYMMDD
+OUT_ZARR   = "./lake_detection_binary_masks_2018.zarr"
+START_DATE = "20180501"  # inclusive, YYYYMMDD
+END_DATE   = "20180930"  # inclusive, YYYYMMDD
 
 start_dt = datetime.strptime(START_DATE, "%Y%m%d")
 end_dt   = datetime.strptime(END_DATE,   "%Y%m%d")
@@ -43,26 +43,12 @@ for i, f in enumerate(files):
     da      = rioxarray.open_rasterio(f, lock=False, chunks={"x": 512, "y": 512}).squeeze("band", drop=True)
     stac_id = da.attrs.get("source_items", "")
     stac_ids.append(stac_id)
-
+    da.attrs = {}  # drop rioxarray/GDAL attrs to avoid CF encoding conflicts    
     da      = da.expand_dims(time=[np.datetime64(dt)])
     da.name = "ndwi_mask"
     ds_i    = da.to_dataset()
 
     if i == 0:
-        ds_i.attrs = {
-            "crs": "EPSG:3413",
-            "description": "~Daily NDWI masks clipped to Greenland ice sheet extent",
-            "resolution_m": 10,
-            "cloud_percentage filter": "10%",
-            "ice_sheet_masks": "https://www.doi.org/10.5067/579TO87M7IZB",
-            "ice_sheet_masks_citation": "Greene, C.A., Gardner, A.S., Wood, M. et al. Ubiquitous acceleration in Greenland Ice Sheet calving from 1985 to 2022. Nature.",
-        }
-        ds_i["ndwi_mask"].attrs = {
-            "long_name": "NDWI-derived water mask",
-            "flag_values": [0, 1],
-            "flag_meanings": "no_lake, lake",
-            "NDWI_threshold": ">0.3",
-        }
         ds_i.chunk({"time": 1, "y": 512, "x": 512}).to_zarr(
             OUT_ZARR, mode="w", encoding=encoding, consolidated=False
         )
@@ -83,6 +69,20 @@ stac_array = np.array(
 )  # shape: (time, stac_item)
 
 root = zarr.open(OUT_ZARR, mode="a")
+root.attrs.update({
+    "crs": "EPSG:3413",
+    "description": "~Daily NDWI masks clipped to Greenland ice sheet extent",
+    "resolution_m": 10,
+    "cloud_percentage_filter": "10%",
+    "ice_sheet_masks": "https://www.doi.org/10.5067/579TO87M7IZB",
+    "ice_sheet_masks_citation": "Greene, C.A., Gardner, A.S., Wood, M. et al. Ubiquitous acceleration in Greenland Ice Sheet calving from 1985 to 2022. Nature.",
+})
+root["ndwi_mask"].attrs.update({
+    "long_name": "NDWI-derived water mask",
+    "flag_values": [0, 1],
+    "flag_meanings": "no_lake, lake",
+    "NDWI_threshold": ">0.3",
+})
 arr = root.create_array(
     "source_items",
     shape=stac_array.shape,
