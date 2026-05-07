@@ -18,9 +18,9 @@ import zarr
 from zarr.codecs import ZstdCodec
 
 COG_DIR    = "./lake_detection_binary_masks_merged_daily_v2_3413_clipped"
-OUT_ZARR   = "./lake_detection_binary_masks_2018.zarr"
-START_DATE = "20180501"  # inclusive, YYYYMMDD
-END_DATE   = "20180930"  # inclusive, YYYYMMDD
+OUT_ZARR   = "./lake_detection_binary_masks_2019.zarr"
+START_DATE = "20190501"  # inclusive, YYYYMMDD
+END_DATE   = "20190930"  # inclusive, YYYYMMDD
 
 start_dt = datetime.strptime(START_DATE, "%Y%m%d")
 end_dt   = datetime.strptime(END_DATE,   "%Y%m%d")
