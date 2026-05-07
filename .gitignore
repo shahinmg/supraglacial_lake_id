@@ -1,0 +1,9 @@
+lake_detection_binary_masks*/
+*.nc
+*.nc.aux.xml
+*.zarr/
+.ipynb_checkpoints/
+.virtual_documents/
+.vscode/
+__pycache__/
+archive/
