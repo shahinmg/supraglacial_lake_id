@@ -17,7 +17,7 @@ import rioxarray  # noqa: F401  registers .rio accessor
 import zarr
 from zarr.codecs import ZstdCodec
 
-COG_DIR    = "./lake_detection_binary_masks_merged_daily_v2_cog_3413_clipped"
+COG_DIR    = "./lake_detection_binary_masks_merged_daily_v2_3413_clipped"
 OUT_ZARR   = "./lake_detection_binary_masks_2018.zarr"
 START_DATE = "20180501"  # inclusive, YYYYMMDD
 END_DATE   = "20180930"  # inclusive, YYYYMMDD
