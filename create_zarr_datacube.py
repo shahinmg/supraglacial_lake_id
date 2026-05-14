@@ -1,10 +1,7 @@
-#!/usr/bin/env python3
 """
 Build a Zarr datacube from all clipped COGs.
 Variables: ndwi_mask, source_items (STAC IDs)
 Coords: x, y, time
-
-Writes incrementally — one file at a time — to avoid OOM.
 """
 
 import glob

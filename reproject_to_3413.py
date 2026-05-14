@@ -1,7 +1,5 @@
-#!/usr/bin/env python3
 """
-Reproject COGs from EPSG:32622 to EPSG:3413 and clip to the NSIDC-0793
-ice sheet mask in a single pass.
+Reproject COGs from EPSG:32622 to EPSG:3413 and clip to the NSIDC-0793 (Greene 2024)
 """
 
 import gc

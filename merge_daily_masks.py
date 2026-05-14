@@ -1,6 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
+"""
+Merge outputs from lake_detect_parallel.py
+method="max" is logical OR for binary mask merging
+"""
 import gc
 import os
 import glob

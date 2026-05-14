@@ -1,5 +1,5 @@
 """
-Sentinel-2 L2A NDWI for supraglacial lake detection via Planetary Computer.
+Sentinel-2 L2A NDWI for supraglacial lake detection
 
 """
 
@@ -21,7 +21,7 @@ TILE_LIST_PATH = "./sentinel_2_tiles.csv"
 DATE_RANGE = "2021-05-01/2021-08-31"
 CLOUD_COVER_MAX = 10
 
-NDWI_MIN = 0.3  # Dunmire 2021 uses 0.5; 0.3 is more permissive
+NDWI_MIN = 0.3  # Dunmire 2021 uses 0.5; 0.3 bc we clip to ice sheet extents from Greene 2024 
 
 OUT_ROOT = "./lake_detection_binary_masks_parallel_v2"
 

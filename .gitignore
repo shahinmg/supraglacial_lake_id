@@ -7,3 +7,4 @@ lake_detection_binary_masks*/
 .vscode/
 __pycache__/
 archive/
+*.zip
