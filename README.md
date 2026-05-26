@@ -11,9 +11,9 @@ output_dir/
 ↓
 merge_daily_masks.py
 ↓
-lake_detection_binary_masks_merged_daily_v2/
+output_dir/
 ↓
-reproject_to_3413.py &larr; NSIDC-0793_*.nc (ice mask)
+reproject_to_3413.py ← NSIDC-0793_*.nc (ice mask)
 ↓
 output_dir/
 ↓
