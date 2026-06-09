@@ -4,7 +4,7 @@ Sentinel-2 L2A NDWI for supraglacial lake detection
 """
 
 import os
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import numpy as np
 import pandas as pd
@@ -14,16 +14,27 @@ from pystac_client import Client
 from pystac_client.exceptions import APIError
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
-from cog_utils import write_cog, OVERVIEW_LEVELS_TILE
-
 API_URL = "https://planetarycomputer.microsoft.com/api/stac/v1"
 TILE_LIST_PATH = "./sentinel_2_tiles.csv"
 DATE_RANGE = "2021-05-01/2021-08-31"
 CLOUD_COVER_MAX = 10
 
-NDWI_MIN = 0.3  # Dunmire 2021 uses 0.5; 0.3 bc we clip to ice sheet extents from Greene 2024 
+NDWI_MIN = 0.3  # Dunmire 2021 uses 0.5; 0.3 bc we clip to ice sheet extents from Greene 2024
 
 OUT_ROOT = "./lake_detection_binary_masks_parallel_v2"
+
+# GDAL tuning for reading remote COGs from Planetary Computer (Azure blob).
+# Skips the useless directory listing on open, enables HTTP/2 multiplexing and a
+# read cache, and multithreads (de)compression.
+GDAL_ENV = dict(
+    GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR",
+    CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif",
+    GDAL_HTTP_MULTIPLEX="YES",
+    GDAL_HTTP_VERSION="2",
+    VSI_CACHE="TRUE",
+    VSI_CACHE_SIZE=str(64 * 1024 * 1024),
+    GDAL_NUM_THREADS="ALL_CPUS",
+)
 
 
 def _boa_offset(item):
@@ -62,13 +73,25 @@ def lake_detect(args):
         print(f"  FAILED {item_id}: {e}")
         return
 
-    ndwi = (blue - red) / (blue + red)
-    mask = (ndwi > NDWI_MIN).astype(np.int8)
+    # Compute NDWI with minimal peak memory: reuse buffers in place and free the
+    # input bands before dividing, so each worker peaks near ~1.4 GB instead of ~2.4 GB.
+    num = blue - red
+    den = blue + red
+    del blue, red
+    with np.errstate(divide="ignore", invalid="ignore"):
+        num /= den  # in place; num now holds NDWI
+    del den
+    mask = (num > NDWI_MIN).astype(np.int8)
 
-    profile.update(dtype="int8")
-    write_cog(mask, profile, out_file,
-              tags={"source_items": item_id},
-              overview_levels=OVERVIEW_LEVELS_TILE)
+    # Per-tile intermediate: plain tiled GeoTIFF, no overviews. merge_daily_masks.py
+    # reads these at full resolution only, so building pyramids here is wasted work.
+    # Light zstd is plenty for a binary 0/1 mask.
+    profile.update(dtype="int8", count=1, driver="GTiff",
+                   tiled=True, blockxsize=512, blockysize=512,
+                   compress="zstd", zstd_level=3, num_threads="ALL_CPUS")
+    with rasterio.open(out_file, "w", **profile) as dst:
+        dst.write(mask, 1)
+        dst.update_tags(source_items=item_id)
 
     print(f"  wrote: {item_id}")
 
@@ -95,16 +118,20 @@ def search_tile(client, tile):
 def main():
     client = Client.open(API_URL, modifier=planetary_computer.sign_inplace)
     tiles = pd.read_csv(TILE_LIST_PATH)["tile"]
+    # Capped by memory, not CPU: each worker peaks at ~1.4 GB on a full S2 tile.
+    max_workers = min(10, os.cpu_count())
 
-    for tile in tiles:
-        items = search_tile(client, tile)
-        print(f"Tile {tile}: found {len(items)} datasets")
-        if not items:
-            continue
+    with rasterio.Env(**GDAL_ENV):
+        for tile in tiles:
+            items = search_tile(client, tile)
+            print(f"Tile {tile}: found {len(items)} datasets")
+            if not items:
+                continue
 
-        max_workers = min(32, os.cpu_count() * 4)
-        with ThreadPoolExecutor(max_workers=max_workers) as ex:
-            ex.map(lake_detect, [(item, tile) for item in items])
+            with ThreadPoolExecutor(max_workers=max_workers) as ex:
+                futures = [ex.submit(lake_detect, (item, tile)) for item in items]
+                for fut in as_completed(futures):
+                    fut.result()  # re-raise any worker exception instead of swallowing it
 
 
 if __name__ == "__main__":

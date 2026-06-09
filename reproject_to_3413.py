@@ -15,8 +15,6 @@ from rasterio.enums import Resampling
 from rasterio.transform import from_origin
 from rasterio.warp import reproject, reproject as warp_reproject
 
-from cog_utils import write_cog, OVERVIEW_LEVELS_MOSAIC
-
 
 IN_DIR  = "./lake_detection_binary_masks_merged_daily_v2"
 OUT_DIR = "./lake_detection_binary_masks_merged_daily_v2_3413_clipped"
@@ -95,11 +93,18 @@ def process(src_path, ds, times, nc_transform, mask_cache):
             dst_transform=DST_TRANSFORM,
             dst_crs=DST_CRS,
             resampling=Resampling.nearest,
+            num_threads=os.cpu_count(),
         )
         tags = src.tags()
 
     data[ice_mask == 0] = 0
-    write_cog(data, profile, dst_path, tags=tags, overview_levels=OVERVIEW_LEVELS_MOSAIC)
+    # Single-pass tiled write, no overviews.
+    # num_threads multithreads zstd compression; safe since reproject runs one process.
+    profile.update(driver="GTiff", count=1, tiled=True, blockxsize=512, blockysize=512,
+                   compress="zstd", zstd_level=9, num_threads="ALL_CPUS")
+    with rasterio.open(dst_path, "w", **profile) as dst:
+        dst.write(data, 1)
+        dst.update_tags(**tags)
 
     gc.collect()
     print(f"  done: {fname}")
@@ -114,9 +119,12 @@ if __name__ == "__main__":
     files = sorted(glob.glob(os.path.join(IN_DIR, "*.tif")))
     print(f"Found {len(files)} files")
 
-    # Sequential to keep mask cache efficient across dates
-    for f in files:
-        process(f, ds, times, nc_transform, mask_cache)
+    # Sequential to keep mask cache efficient across dates. ALL_CPUS multithreads
+    # zstd decompression on read and compression on the COG write; safe to max out
+    # since there's only one process.
+    with rasterio.Env(GDAL_NUM_THREADS="ALL_CPUS"):
+        for f in files:
+            process(f, ds, times, nc_transform, mask_cache)
 
     ds.close()
     print("Done")
