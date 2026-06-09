@@ -98,8 +98,7 @@ def process(src_path, ds, times, nc_transform, mask_cache):
         tags = src.tags()
 
     data[ice_mask == 0] = 0
-    # Single-pass tiled write, no overviews. These are the shared deliverables, so add
-    # overviews before distributing with: python add_overviews.py <OUT_DIR>
+    # Single-pass tiled write, no overviews.
     # num_threads multithreads zstd compression; safe since reproject runs one process.
     profile.update(driver="GTiff", count=1, tiled=True, blockxsize=512, blockysize=512,
                    compress="zstd", zstd_level=9, num_threads="ALL_CPUS")

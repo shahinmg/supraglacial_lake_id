@@ -44,8 +44,7 @@ def merge_date(args):
             ds.close()
 
     item_ids = [os.path.basename(f).replace("_lake_pixels.tif", "") for f in files]
-    # Single-pass tiled write, no overviews: nothing downstream reads them. Build
-    # overviews later with add_overviews.py, only on files you're about to share.
+    # Single-pass tiled write, no overviews (nothing downstream reads them).
     meta.update(driver="GTiff", count=1, tiled=True, blockxsize=512, blockysize=512,
                 compress="zstd", zstd_level=6)
     with rasterio.open(out_path, "w", **meta) as dst:

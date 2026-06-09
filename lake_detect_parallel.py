@@ -84,9 +84,8 @@ def lake_detect(args):
     mask = (num > NDWI_MIN).astype(np.int8)
 
     # Per-tile intermediate: plain tiled GeoTIFF, no overviews. merge_daily_masks.py
-    # reads these at full resolution only and rebuilds overviews on the daily mosaic,
-    # so building per-tile pyramids here is wasted work. Light zstd is plenty for a
-    # binary 0/1 mask.
+    # reads these at full resolution only, so building pyramids here is wasted work.
+    # Light zstd is plenty for a binary 0/1 mask.
     profile.update(dtype="int8", count=1, driver="GTiff",
                    tiled=True, blockxsize=512, blockysize=512,
                    compress="zstd", zstd_level=3, num_threads="ALL_CPUS")
