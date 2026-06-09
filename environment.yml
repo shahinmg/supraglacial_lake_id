@@ -1,0 +1,30 @@
+# Conda environment for the supraglacial lake detection pipeline.
+# Create with:   conda env create -f environment.yml
+# Update with:   conda env update -f environment.yml --prune
+# Versions pinned to the working py312 environment (GDAL 3.12.3 via rasterio).
+
+name: supraglacial-lake-id
+
+channels:
+  - conda-forge
+
+dependencies:
+  - python=3.12.8
+  # geospatial I/O (rasterio bundles libgdal 3.12.x)
+  - rasterio=1.5.0
+  - rioxarray=0.20.0
+  # STAC access to Microsoft Planetary Computer
+  - pystac-client=0.9.0
+  - planetary-computer=1.0.0
+  # arrays / dataframes / datacube
+  - numpy=2.2.3
+  - pandas=2.2.3
+  - xarray=2025.1.2
+  - zarr=3.0.4
+  # utilities
+  - tenacity=9.1.4
+  - tqdm=4.67.1
+
+  # Optional — for the example notebooks in notebooks/ (uncomment if needed):
+  # - jupyterlab
+  # - matplotlib

@@ -13,6 +13,7 @@ import rasterio
 from pystac_client import Client
 from pystac_client.exceptions import APIError
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+from tqdm import tqdm
 
 API_URL = "https://planetarycomputer.microsoft.com/api/stac/v1"
 TILE_LIST_PATH = "./sentinel_2_tiles.csv"
@@ -51,10 +52,9 @@ def lake_detect(args):
     out_file = os.path.join(out_dir, f"{item_id}_lake_pixels.tif")
 
     if os.path.exists(out_file):
-        print(f"  skip (exists): {item_id}")
+        tqdm.write(f"  skip (exists): {item_id}")
         return
 
-    print(f"  reading: {item_id}")
     offset = _boa_offset(item)
     DN_offset = 10000.0 # try 2**14 https://github.com/Clay-foundation/model/issues/94
 
@@ -67,7 +67,7 @@ def lake_detect(args):
             red = (src.read(1).astype(np.float32) + offset) / DN_offset
 
     except Exception as e:
-        print(f"  FAILED {item_id}: {e}")
+        tqdm.write(f"  FAILED {item_id}: {e}")
         return
 
     # Compute NDWI with minimal peak memory
@@ -87,8 +87,6 @@ def lake_detect(args):
     with rasterio.open(out_file, "w", **profile) as dst:
         dst.write(mask, 1)
         dst.update_tags(source_items=item_id)
-
-    print(f"  wrote: {item_id}")
 
 
 @retry(
@@ -125,7 +123,8 @@ def main():
 
             with ThreadPoolExecutor(max_workers=max_workers) as ex:
                 futures = [ex.submit(lake_detect, (item, tile)) for item in items]
-                for fut in as_completed(futures):
+                for fut in tqdm(as_completed(futures), total=len(futures),
+                                desc=tile, unit="scene"):
                     fut.result()  # re-raise any worker exception instead of swallowing it
 
 
