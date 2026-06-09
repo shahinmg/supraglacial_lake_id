@@ -98,10 +98,12 @@ def process(src_path, ds, times, nc_transform, mask_cache):
         tags = src.tags()
 
     data[ice_mask == 0] = 0
-    # Single-pass tiled write, no overviews.
-    # num_threads multithreads zstd compression; safe since reproject runs one process.
-    profile.update(driver="GTiff", count=1, tiled=True, blockxsize=512, blockysize=512,
-                   compress="zstd", zstd_level=9, num_threads="ALL_CPUS")
+    # Valid COG, no overviews (OVERVIEWS=NONE). num_threads multithreads zstd
+    # compression; safe to max out since reproject runs as a single process.
+    for k in ("tiled", "blockxsize", "blockysize", "interleave", "compress", "zstd_level", "predictor"):
+        profile.pop(k, None)
+    profile.update(driver="COG", count=1, compress="ZSTD", level=1,
+                   blocksize=512, overviews="NONE", num_threads="ALL_CPUS")
     with rasterio.open(dst_path, "w", **profile) as dst:
         dst.write(data, 1)
         dst.update_tags(**tags)

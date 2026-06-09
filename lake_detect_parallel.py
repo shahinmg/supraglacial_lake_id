@@ -24,8 +24,6 @@ NDWI_MIN = 0.3  # Dunmire 2021 uses 0.5; 0.3 bc we clip to ice sheet extents fro
 OUT_ROOT = "./lake_detection_binary_masks_parallel_v2"
 
 # GDAL tuning for reading remote COGs from Planetary Computer (Azure blob).
-# Skips the useless directory listing on open, enables HTTP/2 multiplexing and a
-# read cache, and multithreads (de)compression.
 GDAL_ENV = dict(
     GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR",
     CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif",
@@ -33,7 +31,6 @@ GDAL_ENV = dict(
     GDAL_HTTP_VERSION="2",
     VSI_CACHE="TRUE",
     VSI_CACHE_SIZE=str(64 * 1024 * 1024),
-    GDAL_NUM_THREADS="ALL_CPUS",
 )
 
 
@@ -73,8 +70,7 @@ def lake_detect(args):
         print(f"  FAILED {item_id}: {e}")
         return
 
-    # Compute NDWI with minimal peak memory: reuse buffers in place and free the
-    # input bands before dividing, so each worker peaks near ~1.4 GB instead of ~2.4 GB.
+    # Compute NDWI with minimal peak memory
     num = blue - red
     den = blue + red
     del blue, red
@@ -83,12 +79,11 @@ def lake_detect(args):
     del den
     mask = (num > NDWI_MIN).astype(np.int8)
 
-    # Per-tile intermediate: plain tiled GeoTIFF, no overviews. merge_daily_masks.py
-    # reads these at full resolution only, so building pyramids here is wasted work.
-    # Light zstd is plenty for a binary 0/1 mask.
-    profile.update(dtype="int8", count=1, driver="GTiff",
-                   tiled=True, blockxsize=512, blockysize=512,
-                   compress="zstd", zstd_level=3, num_threads="ALL_CPUS")
+    # Per-tile intermediate: valid COG, no overviews
+    for k in ("tiled", "blockxsize", "blockysize", "interleave", "compress", "zstd_level", "predictor"):
+        profile.pop(k, None)
+    profile.update(driver="COG", dtype="int8", count=1,
+                   compress="ZSTD", level=1, blocksize=512, overviews="NONE")
     with rasterio.open(out_file, "w", **profile) as dst:
         dst.write(mask, 1)
         dst.update_tags(source_items=item_id)

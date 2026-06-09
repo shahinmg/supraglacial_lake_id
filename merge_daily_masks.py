@@ -44,9 +44,11 @@ def merge_date(args):
             ds.close()
 
     item_ids = [os.path.basename(f).replace("_lake_pixels.tif", "") for f in files]
-    # Single-pass tiled write, no overviews (nothing downstream reads them).
-    meta.update(driver="GTiff", count=1, tiled=True, blockxsize=512, blockysize=512,
-                compress="zstd", zstd_level=6)
+    # Valid COG, no overviews (OVERVIEWS=NONE); nothing downstream reads overviews.
+    for k in ("tiled", "blockxsize", "blockysize", "interleave", "compress", "zstd_level", "predictor"):
+        meta.pop(k, None)
+    meta.update(driver="COG", count=1, compress="ZSTD", level=1,
+                blocksize=512, overviews="NONE")
     with rasterio.open(out_path, "w", **meta) as dst:
         dst.write(mosaic[0], 1)
         dst.update_tags(source_items=",".join(item_ids))
