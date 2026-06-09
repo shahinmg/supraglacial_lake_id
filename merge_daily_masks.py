@@ -11,8 +11,6 @@ from multiprocessing import Pool, cpu_count
 import rasterio
 from rasterio.merge import merge
 
-from cog_utils import write_cog, OVERVIEW_LEVELS_TILE
-
 
 MASK_DIR = "./lake_detection_binary_masks_parallel_v2"
 OUT_DIR = "./lake_detection_binary_masks_merged_daily_v2"
@@ -46,14 +44,13 @@ def merge_date(args):
             ds.close()
 
     item_ids = [os.path.basename(f).replace("_lake_pixels.tif", "") for f in files]
-    # Keep overviews: these merged daily COGs are sometimes viewed/served directly.
-    # zstd 6 (vs 9) writes faster with a negligible size cost on sparse binary masks.
-    write_cog(
-        mosaic[0], meta, out_path,
-        tags={"source_items": ",".join(item_ids)},
-        overview_levels=OVERVIEW_LEVELS_TILE,
-        zstd_level=6,
-    )
+    # Single-pass tiled write, no overviews: nothing downstream reads them. Build
+    # overviews later with add_overviews.py, only on files you're about to share.
+    meta.update(driver="GTiff", count=1, tiled=True, blockxsize=512, blockysize=512,
+                compress="zstd", zstd_level=6)
+    with rasterio.open(out_path, "w", **meta) as dst:
+        dst.write(mosaic[0], 1)
+        dst.update_tags(source_items=",".join(item_ids))
     del mosaic
     gc.collect()
 

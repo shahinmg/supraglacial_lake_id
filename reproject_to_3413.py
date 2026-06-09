@@ -15,8 +15,6 @@ from rasterio.enums import Resampling
 from rasterio.transform import from_origin
 from rasterio.warp import reproject, reproject as warp_reproject
 
-from cog_utils import write_cog, OVERVIEW_LEVELS_MOSAIC
-
 
 IN_DIR  = "./lake_detection_binary_masks_merged_daily_v2"
 OUT_DIR = "./lake_detection_binary_masks_merged_daily_v2_3413_clipped"
@@ -100,7 +98,14 @@ def process(src_path, ds, times, nc_transform, mask_cache):
         tags = src.tags()
 
     data[ice_mask == 0] = 0
-    write_cog(data, profile, dst_path, tags=tags, overview_levels=OVERVIEW_LEVELS_MOSAIC)
+    # Single-pass tiled write, no overviews. These are the shared deliverables, so add
+    # overviews before distributing with: python add_overviews.py <OUT_DIR>
+    # num_threads multithreads zstd compression; safe since reproject runs one process.
+    profile.update(driver="GTiff", count=1, tiled=True, blockxsize=512, blockysize=512,
+                   compress="zstd", zstd_level=9, num_threads="ALL_CPUS")
+    with rasterio.open(dst_path, "w", **profile) as dst:
+        dst.write(data, 1)
+        dst.update_tags(**tags)
 
     gc.collect()
     print(f"  done: {fname}")
