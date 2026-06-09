@@ -46,10 +46,13 @@ def merge_date(args):
             ds.close()
 
     item_ids = [os.path.basename(f).replace("_lake_pixels.tif", "") for f in files]
+    # Keep overviews: these merged daily COGs are sometimes viewed/served directly.
+    # zstd 6 (vs 9) writes faster with a negligible size cost on sparse binary masks.
     write_cog(
         mosaic[0], meta, out_path,
         tags={"source_items": ",".join(item_ids)},
         overview_levels=OVERVIEW_LEVELS_TILE,
+        zstd_level=6,
     )
     del mosaic
     gc.collect()

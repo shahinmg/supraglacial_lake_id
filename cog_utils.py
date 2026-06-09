@@ -28,7 +28,8 @@ _COG_ONLY_KEYS = ("compress", "zstd_level", "tiled", "blockxsize", "blockysize",
                   "interleave", "copy_src_overviews")
 
 
-def write_cog(data, profile, dst_path, tags=None, overview_levels=OVERVIEW_LEVELS_TILE):
+def write_cog(data, profile, dst_path, tags=None, overview_levels=OVERVIEW_LEVELS_TILE,
+              zstd_level=None):
     """Write a numpy array as a COG with ZSTD compression and overviews.
 
     Args:
@@ -37,6 +38,9 @@ def write_cog(data, profile, dst_path, tags=None, overview_levels=OVERVIEW_LEVEL
         dst_path:        Output file path.
         tags:            Optional dict of dataset-level tags to embed.
         overview_levels: List of overview decimation factors.
+        zstd_level:      Override ZSTD compression level (default: COG_PROFILE's level 9).
+                         Lower levels write faster; on sparse binary masks the size
+                         difference is negligible.
     """
     tmp_profile = {k: v for k, v in profile.items() if k not in _COG_ONLY_KEYS}
     tmp_profile.update(driver="GTiff", count=1)
@@ -56,6 +60,8 @@ def write_cog(data, profile, dst_path, tags=None, overview_levels=OVERVIEW_LEVEL
         with rasterio.open(tmp_path) as tmp_ds:
             out_profile = tmp_ds.profile.copy()
             out_profile.update(COG_PROFILE)
+            if zstd_level is not None:
+                out_profile["zstd_level"] = zstd_level
             rio_copy(tmp_ds, dst_path, **out_profile)
     finally:
         if os.path.exists(tmp_path):

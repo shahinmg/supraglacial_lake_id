@@ -95,6 +95,7 @@ def process(src_path, ds, times, nc_transform, mask_cache):
             dst_transform=DST_TRANSFORM,
             dst_crs=DST_CRS,
             resampling=Resampling.nearest,
+            num_threads=os.cpu_count(),
         )
         tags = src.tags()
 
@@ -114,9 +115,12 @@ if __name__ == "__main__":
     files = sorted(glob.glob(os.path.join(IN_DIR, "*.tif")))
     print(f"Found {len(files)} files")
 
-    # Sequential to keep mask cache efficient across dates
-    for f in files:
-        process(f, ds, times, nc_transform, mask_cache)
+    # Sequential to keep mask cache efficient across dates. ALL_CPUS multithreads
+    # zstd decompression on read and compression on the COG write; safe to max out
+    # since there's only one process.
+    with rasterio.Env(GDAL_NUM_THREADS="ALL_CPUS"):
+        for f in files:
+            process(f, ds, times, nc_transform, mask_cache)
 
     ds.close()
     print("Done")
