@@ -71,8 +71,8 @@ def lake_detect(args):
         return
 
     # Compute NDWI with minimal peak memory
-    num = blue - red
-    den = blue + red
+    num = blue - red #numerator
+    den = blue + red #denominator
     del blue, red
     with np.errstate(divide="ignore", invalid="ignore"):
         num /= den  # in place; num now holds NDWI
@@ -83,7 +83,7 @@ def lake_detect(args):
     for k in ("tiled", "blockxsize", "blockysize", "interleave", "compress", "zstd_level", "predictor"):
         profile.pop(k, None)
     profile.update(driver="COG", dtype="int8", count=1,
-                   compress="ZSTD", level=1, blocksize=512, overviews="NONE")
+                   compress="ZSTD", level=1, blocksize=512, overviews="NONE")  
     with rasterio.open(out_file, "w", **profile) as dst:
         dst.write(mask, 1)
         dst.update_tags(source_items=item_id)
