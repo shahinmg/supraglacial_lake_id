@@ -65,7 +65,7 @@ def group_files_by_date(mask_dir):
     return dict(by_date)
 
 
-if __name__ == "__main__":
+def main():
     os.makedirs(OUT_DIR, exist_ok=True)
 
     by_date = group_files_by_date(MASK_DIR)
@@ -79,3 +79,7 @@ if __name__ == "__main__":
         pool.map(merge_date, list(by_date.items()))
 
     print("Done")
+
+
+if __name__ == "__main__":
+    main()
