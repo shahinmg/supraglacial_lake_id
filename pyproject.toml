@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "supraglacial-lake-id"
+version = "0.1.0"
+description = "Sentinel-2 NDWI supraglacial lake detection pipeline for central-west Greenland"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "Michael Shahin", email = "shahinmg3@gmail.com" }]
+keywords = ["greenland", "supraglacial-lakes", "sentinel-2", "ndwi", "remote-sensing", "glaciology"]
+
+dependencies = [
+    "rasterio>=1.5.0",
+    "rioxarray>=0.20.0",
+    "pystac-client>=0.9.0",
+    "planetary-computer>=1.0.0",
+    "numpy>=2.2.3",
+    "pandas>=2.2.3",
+    "xarray>=2025.1.2",
+    "zarr>=3.0.4",
+    "tenacity>=9.1.4",
+    "tqdm>=4.67.1",
+]
+
+[project.optional-dependencies]
+notebooks = ["jupyterlab", "matplotlib"]
+
+[project.urls]
+Repository = "https://github.com/shahinmg/supraglacial_lake_id"
+
+[project.scripts]
+slake-detect = "supraglacial_lake_id.lake_detect_parallel:main"
+slake-merge-daily = "supraglacial_lake_id.merge_daily_masks:main"
+slake-reproject-3413 = "supraglacial_lake_id.reproject_to_3413:main"
+slake-build-zarr = "supraglacial_lake_id.create_zarr_datacube:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+supraglacial_lake_id = ["sentinel_2_tiles.csv"]

@@ -5,6 +5,7 @@ Sentinel-2 L2A NDWI for supraglacial lake detection
 
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from importlib.resources import files
 
 import numpy as np
 import pandas as pd
@@ -16,7 +17,12 @@ from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_ex
 from tqdm import tqdm
 
 API_URL = "https://planetarycomputer.microsoft.com/api/stac/v1"
-TILE_LIST_PATH = "./sentinel_2_tiles.csv"
+# Defaults to the tile list packaged alongside this module; override with the
+# SENTINEL2_TILE_LIST environment variable.
+TILE_LIST_PATH = os.environ.get(
+    "SENTINEL2_TILE_LIST",
+    str(files("supraglacial_lake_id") / "sentinel_2_tiles.csv"),
+)
 DATE_RANGE = "2021-05-01/2021-08-31"
 CLOUD_COVER_MAX = 10
 

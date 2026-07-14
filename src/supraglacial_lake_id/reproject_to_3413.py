@@ -112,7 +112,7 @@ def process(src_path, ds, times, nc_transform, mask_cache):
     print(f"  done: {fname}")
 
 
-if __name__ == "__main__":
+def main():
     os.makedirs(OUT_DIR, exist_ok=True)
 
     ds, times, nc_transform = load_ice_masks(NC_PATH)
@@ -130,3 +130,7 @@ if __name__ == "__main__":
 
     ds.close()
     print("Done")
+
+
+if __name__ == "__main__":
+    main()
