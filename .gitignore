@@ -8,9 +8,3 @@ lake_detection_binary_masks*/
 __pycache__/
 archive/
 *.zip
-
-# packaging / build artifacts
-build/
-dist/
-*.egg-info/
-src/*.egg-info/
