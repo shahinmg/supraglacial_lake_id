@@ -3,21 +3,32 @@
 
 A pipeline for NDWI masking for supraglacial lakes in central-west Greenland using Sentinel-2 L2A imagery from Microsoft Planetary Computer. The final output are Zarr stores for a particular year's melt season.
 
-The pipeline works as follows
+## Environment
+
 ```
-lake_detect_parallel.py
+conda env create -f environment.yml
+conda activate supraglacial-lake-id
+```
+
+## Pipeline
+
+The pipeline scripts live in `src/`. Run them from the repo root (their input,
+output, and data paths are resolved relative to the current working directory):
+
+```
+src/lake_detect_parallel.py
 ↓
 output_dir/
 ↓
-merge_daily_masks.py
+src/merge_daily_masks.py
 ↓
 output_dir/
 ↓
-reproject_to_3413.py ← NSIDC-0793_*.nc (ice mask)
+src/reproject_to_3413.py ← NSIDC-0793_*.nc (ice mask)
 ↓
 output_dir/
 ↓
-create_zarr_datacube.py
+src/create_zarr_datacube.py
 ↓
 lake_detection_binary_masks_.zarr
 ```
