@@ -8,3 +8,4 @@ lake_detection_binary_masks*/
 __pycache__/
 archive/
 *.zip
+greenland_boundaries_4326.geojson
