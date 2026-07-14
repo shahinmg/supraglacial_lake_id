@@ -23,6 +23,8 @@ CLOUD_COVER_MAX = 10
 NDWI_MIN = 0.3  # Dunmire 2021 uses 0.5; 0.3 bc we clip to ice sheet extents from Greene 2024
 
 OUT_ROOT = "./lake_detection_binary_masks_parallel_v2"
+SAVE_NDWI = True                # also save the unfiltered continuous NDWI
+NDWI_OUT_ROOT = "./ndwi_raw"    # sibling of OUT_ROOT (must NOT be inside it)
 
 # GDAL tuning for reading remote COGs from Planetary Computer (Azure blob).
 GDAL_ENV = dict(
@@ -41,7 +43,7 @@ def _boa_offset(item):
     return -1000.0 if baseline >= 4.0 else 0.0
 
 
-def lake_detect(args):
+def lake_detect(args, save_ndwi=False):
     item, tile = args
 
     item = planetary_computer.sign(item)  # fresh SAS tokens inside the worker
@@ -51,7 +53,13 @@ def lake_detect(args):
     os.makedirs(out_dir, exist_ok=True)
     out_file = os.path.join(out_dir, f"{item_id}_lake_pixels.tif")
 
-    if os.path.exists(out_file):
+    ndwi_file = None
+    if save_ndwi:
+        ndwi_dir = os.path.join(NDWI_OUT_ROOT, tile)
+        os.makedirs(ndwi_dir, exist_ok=True)
+        ndwi_file = os.path.join(ndwi_dir, f"{item_id}_ndwi.tif")
+
+    if os.path.exists(out_file) and (not save_ndwi or os.path.exists(ndwi_file)):
         tqdm.write(f"  skip (exists): {item_id}")
         return
 
@@ -71,22 +79,36 @@ def lake_detect(args):
         return
 
     # Compute NDWI with minimal peak memory
-    num = blue - red #numerator
-    den = blue + red #denominator
+    num = blue - red            # numerator
+    den = blue + red            # denominator
     del blue, red
     with np.errstate(divide="ignore", invalid="ignore"):
-        num /= den  # in place; num now holds NDWI
-    del den
-    mask = (num > NDWI_MIN).astype(np.int8)
+        ndwi = np.divide(num, den, out=num)   # reuse num's buffer; no new allocation
+    del num, den                              # num is now a stale alias for ndwi
 
-    # Per-tile intermediate: valid COG, no overviews
+    mask = (ndwi > NDWI_MIN).astype(np.int8)   # from raw ndwi; unchanged behavior
+
+    # Scrub inherited encoding options once; both outputs branch off this.
+    # Per-tile intermediate: valid COG, no overviews.
     for k in ("tiled", "blockxsize", "blockysize", "interleave", "compress", "zstd_level", "predictor"):
         profile.pop(k, None)
-    profile.update(driver="COG", dtype="int8", count=1,
-                   compress="ZSTD", level=1, blocksize=512, overviews="NONE")  
-    with rasterio.open(out_file, "w", **profile) as dst:
+
+    profile_mask = profile.copy()
+    profile_mask.update(driver="COG", dtype="int8", count=1,
+                        compress="ZSTD", level=1, blocksize=512, overviews="NONE")
+    with rasterio.open(out_file, "w", **profile_mask) as dst:
         dst.write(mask, 1)
         dst.update_tags(source_items=item_id)
+
+    if save_ndwi:
+        ndwi[~np.isfinite(ndwi)] = np.nan      # den==0 pixels -> nodata
+        profile_ndwi = profile.copy()
+        profile_ndwi.update(driver="COG", dtype="float32", count=1, nodata=float("nan"),
+                            compress="ZSTD", level=1, blocksize=512, overviews="NONE")
+        with rasterio.open(ndwi_file, "w", **profile_ndwi) as dst:
+            dst.write(ndwi, 1)
+            dst.update_tags(source_items=item_id)
+
 
 
 @retry(
@@ -122,7 +144,8 @@ def main():
                 continue
 
             with ThreadPoolExecutor(max_workers=max_workers) as ex:
-                futures = [ex.submit(lake_detect, (item, tile)) for item in items]
+                futures = [ex.submit(lake_detect, (item, tile), save_ndwi=SAVE_NDWI)
+                           for item in items]
                 for fut in tqdm(as_completed(futures), total=len(futures),
                                 desc=tile, unit="scene"):
                     fut.result()  # re-raise any worker exception instead of swallowing it
